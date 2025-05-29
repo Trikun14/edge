@@ -7,6 +7,8 @@
 #include <cstring>
 #include <climits>
 #include <string>
+#include <vector>
+#include<algorithm>
 
 using namespace std;
 
