@@ -1,8 +1,8 @@
-
 #include "bellman.h"
 #include <vector>
 #include <string>
 #include <climits>
+#include <algorithm>
 using namespace std;
 
 struct MyEdge {
@@ -11,7 +11,6 @@ struct MyEdge {
     int cost;
 };
 
-// Hàm tìm chỉ số của đỉnh trong mảng vertices
 int getIndex(char c, char vertices[], int size) {
     for (int i = 0; i < size; ++i) {
         if (vertices[i] == c) return i;
@@ -19,11 +18,11 @@ int getIndex(char c, char vertices[], int size) {
     return -1;
 }
 
-// Hàm gom các đỉnh khác nhau và ánh xạ thủ công
 void createVertexMapping(int edge[][3], int numberOfEdges, char vertices[], int& numVertices, vector<MyEdge>& edgeList) {
     bool marked[256] = { false };
     numVertices = 0;
 
+    // đầu tiên tìm tất cả các đỉnh duy nhất
     for (int i = 0; i < numberOfEdges; ++i) {
         char u = edge[i][0];
         char v = edge[i][1];
@@ -38,49 +37,56 @@ void createVertexMapping(int edge[][3], int numberOfEdges, char vertices[], int&
         }
     }
 
+    // Tạo danh sách cạnh có chỉ số
+    edgeList.clear();
     for (int i = 0; i < numberOfEdges; ++i) {
         int uIdx = getIndex(edge[i][0], vertices, numVertices);
         int vIdx = getIndex(edge[i][1], vertices, numVertices);
-        edgeList.push_back({ uIdx, vIdx, edge[i][2] });
+        edgeList.push_back({uIdx, vIdx, edge[i][2]});
     }
 }
 
-// Triển khai thuật toán Bellman-Ford
 void BF(int edge[][3], int numberOfEdges, char startVertex, int BellmanFordValue[], int BellmanFordPrevious[]) {
     char vertices[256];
     int numVertices = 0;
     vector<MyEdge> edgeList;
-
+    
     createVertexMapping(edge, numberOfEdges, vertices, numVertices, edgeList);
-
-    for (int i = 0; i < numVertices; ++i) {
-        BellmanFordValue[i] = INT_MAX;
-        BellmanFordPrevious[i] = -1;
-    }
 
     int startIndex = getIndex(startVertex, vertices, numVertices);
     if (startIndex == -1) return;
 
-    BellmanFordValue[startIndex] = 0;
-
-    for (int i = 0; i < numVertices - 1; ++i) {
-        bool updated = false;
-        for (int j = 0; j < edgeList.size(); ++j) {
-            int u = edgeList[j].from;
-            int v = edgeList[j].to;
-            int w = edgeList[j].cost;
-
-            if (BellmanFordValue[u] != INT_MAX && BellmanFordValue[u] + w < BellmanFordValue[v]) {
-                BellmanFordValue[v] = BellmanFordValue[u] + w;
-                BellmanFordPrevious[v] = u;
-                updated = true;
-            }
+    // Khởi tạo với các giá trị hiện tại, không đặt lại nếu đã tồn tại
+    bool initialized = false;
+    for (int i = 0; i < numVertices; ++i) {
+        if (BellmanFordValue[i] == -1) {
+            BellmanFordValue[i] = INT_MAX;
+            BellmanFordPrevious[i] = -1;
+            initialized = true;
         }
-        if (!updated) break;
+    }
+    
+    // Chỉ đặt đỉnh bắt đầu nếu chúng ta đang khởi tạo mới
+    if (initialized) {
+        BellmanFordValue[startIndex] = 0;
+    }
+
+    // Tạo bản sao tạm thời của giá trị hiện tại (dùng để relax)
+    vector<int> tempValues(BellmanFordValue, BellmanFordValue + numVertices);
+
+    // duyệt tất cả các cạnh một lần (sử dụng giá trị từ bản sao tạm)
+    for (int j = 0; j < edgeList.size(); ++j) {
+        int u = edgeList[j].from;
+        int v = edgeList[j].to;
+        int w = edgeList[j].cost;
+
+        if (tempValues[u] != INT_MAX && tempValues[u] + w < BellmanFordValue[v]) {
+            BellmanFordValue[v] = tempValues[u] + w;
+            BellmanFordPrevious[v] = u;
+        }
     }
 }
 
-// Hàm xây dựng đường đi từ Bellman-Ford
 string BF_Path(int edge[][3], int numberOfEdges, char startVertex, char goalVertex) {
     char vertices[256];
     int numVertices = 0;
@@ -95,6 +101,7 @@ string BF_Path(int edge[][3], int numberOfEdges, char startVertex, char goalVert
 
     if (startIdx == -1 || goalIdx == -1) return "No path exists";
 
+    // Khởi tạo 
     for (int i = 0; i < numVertices; ++i) {
         BellmanFordValue[i] = INT_MAX;
         BellmanFordPrevious[i] = -1;
@@ -102,6 +109,7 @@ string BF_Path(int edge[][3], int numberOfEdges, char startVertex, char goalVert
 
     BellmanFordValue[startIdx] = 0;
 
+    // Chạy hàm bellman ford
     for (int i = 0; i < numVertices - 1; ++i) {
         bool changed = false;
         for (int j = 0; j < edgeList.size(); ++j) {
@@ -120,6 +128,7 @@ string BF_Path(int edge[][3], int numberOfEdges, char startVertex, char goalVert
 
     if (BellmanFordValue[goalIdx] == INT_MAX) return "No path exists";
 
+    // Xây dựng đường dẫn
     vector<char> path;
     int current = goalIdx;
     while (current != -1) {
